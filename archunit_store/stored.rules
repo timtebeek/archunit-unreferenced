@@ -1,0 +1,4 @@
+#
+#Sat Jan 02 23:39:59 CET 2021
+classes\ that\ are\ not\ meta-annotated\ with\ @Configuration\ and\ are\ not\ meta-annotated\ with\ @Controller\ and\ not\ has\ method\ with\ annotation\ that\ ends\ with\ 'Listener'\ or\ has\ method\ with\ annotation\ that\ ends\ with\ 'Scheduled'\ and\ meta-annotated\ with\ @Component\ should\ not\ be\ unreferenced=7d6093ad-78ac-4d10-867b-f6855728df47
+methods\ that\ do\ not\ have\ name\ 'equals'\ and\ do\ not\ have\ name\ 'hashCode'\ and\ do\ not\ have\ name\ 'toString'\ and\ do\ not\ have\ name\ 'main'\ and\ are\ not\ meta-annotated\ with\ @RequestMapping\ and\ not\ has\ annotation\ that\ ends\ with\ 'Listener'\ or\ has\ annotation\ that\ ends\ with\ 'Scheduled'\ and\ declared\ in\ component\ should\ not\ be\ unreferenced=d44bb14d-04e6-4b7c-89f5-94b445d2e0ae
