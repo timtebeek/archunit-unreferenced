@@ -2,7 +2,7 @@
 
 When you maintain a large Java project for a longer period, the moments where you're finally able to remove unused code can be very satisfying.
 No more upkeep, library version migrations or dark corners to maintain, for code that's no longer being used.
-But finding out which parts of the code base can be removed can be a challenge, and tooling in this space seems not have kept pace with recent development practices in Java.
+But finding out which parts of the code base can be removed can be a challenge, and tooling in this space seems not to have kept pace with recent development practices in Java.
 In this post we'll outline an approach to find unreferenced code with ArchUnit, which allows you to iteratively detect & delete unused code from your Java projects.
 
 == ArchUnit
@@ -12,10 +12,9 @@ https://www.archunit.org/[ArchUnit] is a free, simple and extensible library for
 That is, ArchUnit can check dependencies between packages and classes, layers and slices, check for cyclic dependencies and more.
 It does so by analyzing given Java bytecode, importing all classes into a Java code structure.
 
-https://blog.jdriven.com/2018/10/testing-the-architecture-archunit-in-practice/
-[ArchUnit itself has been covered before by Niels], who outlined its usefulness in guarding the architectural conventions on a project.
+https://blog.jdriven.com/2018/10/testing-the-architecture-archunit-in-practice/[ArchUnit itself has been covered before by Niels], who outlined its usefulness in guarding the architectural conventions on a project.
 
-In this post we'll expand on the custom rules mentioned briefly before, as well as adopt the new ArchUnit JUnit5 test style.
+In this post we'll expand on the custom rules mentioned briefly before, as well as adopt the new ArchUnit JUnit5 test style and lambdas.
 We'll utilize ArchUnit's graph of dependencies between classes and methods to detect unreferenced classes and methods, which are our candidates for deletion.
 We'll also explore both generic and project specific ways to prevent false positives from polluting the results.
 
@@ -56,19 +55,19 @@ class ArchunitUnusedRuleApplicationTests {
 }
 ----
 
-Notice how we're limiting classes analyzed through the use of `packagedOf` and `importOptions` arguments on `@AnalyzeClasses()`.
+Notice how we're limiting classes analyzed through the use of `packagesOf` and `importOptions` arguments on `@AnalyzeClasses()`.
 Also, the use of `@ArchTest` on a `static ArchRule` field alleviates us from having to call `ArchRule.check(JavaClasses)` as shown in the earlier blogpost.
 
-With the `classes()` and `methods()` selectors from `ArchRuleDefinition` we select what we want elements to check with our rule.
+With the `classes()` and `methods()` selectors from `ArchRuleDefinition` we select what elements we want to check with our rule.
 Typically these elements are then further restricted by chaining calls after `.that()`, to weed out potential false positives.
 Finally, with `.should()` we check that all remaining classes satisfy our given condition, and raise an exception when any are found.
 
 === Detecting unused methods
 
 With the above basic structure in place, we can start to define our first rule to detect unused methods.
-As we've said before ArchUnit builds up a graph of dependencies between Java code units, which we can use to find code units that are never referenced from Java code themselves.
+As we've said before ArchUnit builds up a graph of dependencies between Java code units, which we can use to find code units that are never referenced from other Java code units.
 
-Of course, in a typical Spring Boot application there will legitimate reasons why a method is never invoked directly, in particular when annotated to be a web endpoint, message listener or command-, event- or exception handler.
+Of course, in a typical Spring Boot application there are legitimate reasons why a method is never invoked directly, in particular when annotated to be a web endpoint, message listener or command-, event- or exception handler.
 In these instances the framework will invoke the methods for you, so you would not want these accidentally marked as unreferenced in your test rule.
 The same goes for common methods added in particular when using Lombok's `@Data` or `@Value`, which add `equals`, `hashCode` and `toString` methods to classes.
 
@@ -164,7 +163,7 @@ FreezingArchRule can help in these scenarios by recording all existing violation
 Consecutive runs will then only report new violations and ignore known violations.
 If violations are fixed, FreezingArchRule will automatically reduce the known stored violations to prevent any regression.
 
-If you notice any generic patterns in the violations it is of course preferable to exclude such classes with a predicate.
+If you notice any generic patterns in the violations it is of course preferable to exclude such classes from analysis with a `.that()` predicate.
 For specific violations however, freezing is a great approach to acknowledge their existence in the code base without polluting the generic rule.
 
 === Test ArchUnit rules themselves
@@ -218,6 +217,7 @@ class VerifyRulesThemselves {
 With the above rules in place you can be sure new code changes wont inadvertently leave any new or old code unreferenced.
 Any changes to what was previously, or is now unreferenced will be maintained in the freeze store right inside the repository.
 Together these rules will help keep your code base no larger than it needs to be, allowing you to focus on what's actually used.
+Now you start to iteratively detect & delete unused code, and see what pops up next when removed endpoints, methods and classes no longer reference their respective dependencies.
 
 === References
 https://stackoverflow.com/questions/53671469/search-for-unused-classes-in-archunit-how-to-find-myclass-class-reference
