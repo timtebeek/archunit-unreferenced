@@ -31,6 +31,7 @@ class ControllerA {
     }
 }
 
+@Service
 class ServiceA {
     public void process(ModelA model) {
         System.out.println(model);
@@ -53,6 +54,7 @@ class ListenerB {
     }
 }
 
+@Service
 class ServiceB {
     public void process(ModelB model) {
         System.out.println(model);
@@ -75,6 +77,7 @@ class JobC {
     }
 }
 
+@Service
 class ServiceC {
     public void process(ModelC model) {
         System.out.println(model);
@@ -96,8 +99,9 @@ class ComponentD {
     }
 }
 
+@Service
 class ServiceD {
-    public void process(ModelD model) {
+    void process(ModelD model) {
         System.out.println(model);
     }
 }

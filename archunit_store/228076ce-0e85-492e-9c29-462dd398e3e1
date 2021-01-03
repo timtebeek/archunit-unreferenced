@@ -1,0 +1,1 @@
+Method <com.github.timtebeek.archunit.ComponentD.doSomething(com.github.timtebeek.archunit.ModelD)> is unreferenced in (ArchunitUnusedRuleApplication.java:98)

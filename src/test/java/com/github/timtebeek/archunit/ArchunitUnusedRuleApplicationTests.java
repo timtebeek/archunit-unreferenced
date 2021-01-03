@@ -37,7 +37,8 @@ class ArchunitUnusedRuleApplicationTests {
     static ArchRule classesShouldNotBeUnused = freeze(classes()
             .that().areNotMetaAnnotatedWith(org.springframework.context.annotation.Configuration.class)
             .and().areNotMetaAnnotatedWith(org.springframework.stereotype.Controller.class)
-            .and(not(new ClassHasMethodWithAnnotationThatEndsWith("Listener")
+            .and(not(new ClassHasMethodWithAnnotationThatEndsWith("Handler")
+                    .or(new ClassHasMethodWithAnnotationThatEndsWith("Listener"))
                     .or(new ClassHasMethodWithAnnotationThatEndsWith("Scheduled"))
                     .and(metaAnnotatedWith(Component.class))))
             .should(new ArchCondition<>("not be unreferenced") {
@@ -53,13 +54,14 @@ class ArchunitUnusedRuleApplicationTests {
             }));
 
     @ArchTest
-    static ArchRule membersShouldNotBeUnused = freeze(methods()
+    static ArchRule methodsShouldNotBeUnused = freeze(methods()
             .that().doNotHaveName("equals")
             .and().doNotHaveName("hashCode")
             .and().doNotHaveName("toString")
             .and().doNotHaveName("main")
             .and().areNotMetaAnnotatedWith(RequestMapping.class)
-            .and(not(new MethodHasAnnotationThatEndsWith("Listener")
+            .and(not(new MethodHasAnnotationThatEndsWith("Handler")
+                    .or(new MethodHasAnnotationThatEndsWith("Listener"))
                     .or(new MethodHasAnnotationThatEndsWith("Scheduled"))
                     .and(declaredIn(describe("component", clazz -> clazz.isMetaAnnotatedWith(Component.class))))))
             .should(new ArchCondition<>("not be unreferenced") {
@@ -73,6 +75,8 @@ class ArchunitUnusedRuleApplicationTests {
                     }
                 }
             }));
+
+    // TODO Check method references; Add tests for the rules themselves
 
 }
 
