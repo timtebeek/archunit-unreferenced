@@ -1,0 +1,223 @@
+== Detect & delete unreferenced code with ArchUnit
+
+When you maintain a large Java project for a longer period, the moments where you're finally able to remove unused code can be very satisfying.
+No more upkeep, library version migrations or dark corners to maintain, for code that's no longer being used.
+But finding out which parts of the code base can be removed can be a challenge, and tooling in this space seems not have kept pace with recent development practices in Java.
+In this post we'll outline an approach to find unreferenced code with ArchUnit, which allows you to iteratively detect & delete unused code from your Java projects.
+
+== ArchUnit
+
+[quote, Archunit website]
+https://www.archunit.org/[ArchUnit] is a free, simple and extensible library for checking the architecture of your Java code using any plain Java unit test framework.
+That is, ArchUnit can check dependencies between packages and classes, layers and slices, check for cyclic dependencies and more.
+It does so by analyzing given Java bytecode, importing all classes into a Java code structure.
+
+https://blog.jdriven.com/2018/10/testing-the-architecture-archunit-in-practice/
+[ArchUnit itself has been covered before by Niels], who outlined its usefulness in guarding the architectural conventions on a project.
+
+In this post we'll expand on the custom rules mentioned briefly before, as well as adopt the new ArchUnit JUnit5 test style.
+We'll utilize ArchUnit's graph of dependencies between classes and methods to detect unreferenced classes and methods, which are our candidates for deletion.
+We'll also explore both generic and project specific ways to prevent false positives from polluting the results.
+
+=== GitHub repository & Test structure
+
+There's https://github.com/timtebeek/archunit-unreferenced[a GitHub repository to accompany this blog post].
+It contains https://github.com/timtebeek/archunit-unreferenced/blob/main/src/main/java/com/github/timtebeek/archunit/ArchunitUnusedRuleApplication.java[a very minimal Spring Boot application], as well as https://github.com/timtebeek/archunit-unreferenced/blob/main/src/test/java/com/github/timtebeek/archunit/ArchunitUnusedRuleApplicationTests.java[ArchUnit rules to look for unreferenced classes and methods].
+
+At time of writing https://github.com/TNG/ArchUnit/releases/tag/v0.15.0[we're using ArchUnit 0.15.0].
+Specifically, we're using the https://www.archunit.org/userguide/html/000_Index.html#_junit_4_5_support[JUnit5 support] through `com.tngtech.archunit:archunit-junit5:0.15.0`.
+That brings the basic test structure outline to:
+
+
+[source,java]
+----
+@AnalyzeClasses(
+  packagesOf = ArchunitUnusedRuleApplication.class,
+  importOptions = {
+    ImportOption.DoNotIncludeArchives.class,
+    ImportOption.DoNotIncludeJars.class,
+    ImportOption.DoNotIncludeTests.class
+})
+class ArchunitUnusedRuleApplicationTests {
+  @ArchTest
+  static ArchRule classesShouldNotBeUnused = classes()
+    .that()
+      ...
+    .should(
+      ...
+    );
+  @ArchTest
+  static ArchRule methodsShouldNotBeUnused = methods()
+    .that()
+      ...
+    .should(
+      ...
+    );
+}
+----
+
+Notice how we're limiting classes analyzed through the use of `packagedOf` and `importOptions` arguments on `@AnalyzeClasses()`.
+Also, the use of `@ArchTest` on a `static ArchRule` field alleviates us from having to call `ArchRule.check(JavaClasses)` as shown in the earlier blogpost.
+
+With the `classes()` and `methods()` selectors from `ArchRuleDefinition` we select what we want elements to check with our rule.
+Typically these elements are then further restricted by chaining calls after `.that()`, to weed out potential false positives.
+Finally, with `.should()` we check that all remaining classes satisfy our given condition, and raise an exception when any are found.
+
+=== Detecting unused methods
+
+With the above basic structure in place, we can start to define our first rule to detect unused methods.
+As we've said before ArchUnit builds up a graph of dependencies between Java code units, which we can use to find code units that are never referenced from Java code themselves.
+
+Of course, in a typical Spring Boot application there will legitimate reasons why a method is never invoked directly, in particular when annotated to be a web endpoint, message listener or command-, event- or exception handler.
+In these instances the framework will invoke the methods for you, so you would not want these accidentally marked as unreferenced in your test rule.
+The same goes for common methods added in particular when using Lombok's `@Data` or `@Value`, which add `equals`, `hashCode` and `toString` methods to classes.
+
+Putting all of these constraints together we arrive at the following ArchRule to find unused methods.
+
+[source,java]
+----
+@ArchTest
+static ArchRule methodsShouldNotBeUnused = methods()
+  .that().doNotHaveName("equals")
+  .and().doNotHaveName("hashCode")
+  .and().doNotHaveName("toString")
+  .and().doNotHaveName("main")
+  .and().areNotMetaAnnotatedWith(RequestMapping.class)
+  .and(not(methodHasAnnotationThatEndsWith("Handler")
+    .or(methodHasAnnotationThatEndsWith("Listener"))
+    .or(methodHasAnnotationThatEndsWith("Scheduled"))
+    .and(declaredIn(describe("component", clazz -> clazz.isMetaAnnotatedWith(Component.class))))))
+  .should(new ArchCondition<>("not be unreferenced") {
+    @Override
+    public void check(JavaMethod javaMethod, ConditionEvents events) {
+      Set<JavaMethodCall> accesses = new HashSet<>(javaMethod.getAccessesToSelf());
+      accesses.removeAll(javaMethod.getAccessesFromSelf());
+      if (accesses.isEmpty()) {
+        events.add(new SimpleConditionEvent(javaMethod, false, String.format("%s is unreferenced in %s",
+          javaMethod.getDescription(), javaMethod.getSourceCodeLocation())));
+      }
+    }
+  });
+
+static DescribedPredicate<JavaMethod> methodHasAnnotationThatEndsWith(String suffix) {
+  return describe(String.format("has annotation that ends with '%s'", suffix),
+   method -> method.getAnnotations().stream()
+     .anyMatch(annotation -> annotation.getRawType().getFullName().endsWith(suffix)));
+}
+----
+
+=== Detecting unused classes
+
+To detect entire classes that are unreferenced from other classes, we can apply the same approach with a few minor tweaks.
+We would not want to falsely identify any `@Component` that contains a web endpoint, listener or handler either, so we need yet another custom predicate.
+In our condition check we also check whether `JavaClass.getDirectDependenciesToSelf()` turns up any dependencies, to weed out yet another source of false positives.
+
+Eventually, we end up with the following ArchRule to find unused classes. 
+
+[source, java]
+----
+
+@ArchTest
+static ArchRule classesShouldNotBeUnused = classes()
+  .that().areNotMetaAnnotatedWith(org.springframework.context.annotation.Configuration.class)
+  .and().areNotMetaAnnotatedWith(org.springframework.stereotype.Controller.class)
+  .and(not(classHasMethodWithAnnotationThatEndsWith("Handler")
+    .or(classHasMethodWithAnnotationThatEndsWith("Listener"))
+    .or(classHasMethodWithAnnotationThatEndsWith("Scheduled"))
+    .and(metaAnnotatedWith(Component.class))))
+  .should(new ArchCondition<>("not be unreferenced") {
+    @Override
+    public void check(JavaClass javaClass, ConditionEvents events) {
+      Set<JavaAccess<?>> accesses = new HashSet<>(javaClass.getAccessesToSelf());
+      accesses.removeAll(javaClass.getAccessesFromSelf());
+      if (accesses.isEmpty() && javaClass.getDirectDependenciesToSelf().isEmpty()) {
+        events.add(new SimpleConditionEvent(javaClass, false, String.format("%s is unreferenced in %s",
+          javaClass.getDescription(), javaClass.getSourceCodeLocation())));
+      }
+    }
+  });
+
+static DescribedPredicate<JavaClass> classHasMethodWithAnnotationThatEndsWith(String suffix) {
+  return describe(String.format("has method with annotation that ends with '%s'", suffix),
+    clazz -> clazz.getMethods().stream()
+      .flatMap(method -> method.getAnnotations().stream())
+      .anyMatch(annotation -> annotation.getRawType().getFullName().endsWith(suffix)));
+}
+----
+
+=== Limitations
+
+Now, while the above rules are a great start off point to identify potentially unused code, unfortunately, it's also where we will start to run into some of the (current) limitations of ArchUnit.
+Depending on the way your project is setup, you might find that https://github.com/TNG/ArchUnit/issues/215[method reference is not considered as a dependency].
+Or you might find that https://github.com/TNG/ArchUnit/issues/115[generic type arguments] are https://github.com/TNG/ArchUnit/issues/307[not found as dependency].
+And, since ArchUnit operates on the byte code, you might find https://stackoverflow.com/questions/1406616/is-java-guaranteed-to-inline-string-constants-if-they-can-be-determined-at-compi[String constants are inlined at compile time].
+
+=== Freezing false (or true!) positives
+
+Fortunately there's an elegant way to handle false positives with regards to our custom ArchConditions: https://www.archunit.org/userguide/html/000_Index.html#_freezing_arch_rules[Freezing Arch Rules].
+By passing our ArchRule into `FreezingArchRule.freeze(ArchRule)` we can record all current violations, and stop new violations from being added.
+
+[quote, Archunit website]
+When rules are introduced in grown projects, there are often hundreds or even thousands of violations, way too many to fix immediately.
+The only way to tackle such extensive violations is to establish an iterative approach, which prevents the code base from further deterioration.
+FreezingArchRule can help in these scenarios by recording all existing violations to a ViolationStore.
+Consecutive runs will then only report new violations and ignore known violations.
+If violations are fixed, FreezingArchRule will automatically reduce the known stored violations to prevent any regression.
+
+If you notice any generic patterns in the violations it is of course preferable to exclude such classes with a predicate.
+For specific violations however, freezing is a great approach to acknowledge their existence in the code base without polluting the generic rule.
+
+=== Test ArchUnit rules themselves
+
+Finally, you'll want to ensure the rules you create actually find violations when present.
+For this you can setup unit tests which import classes specifically crafted to contain a violation, and assert the violation is reported.
+This step is of course optional, but recommended especially when sharing rules across multiple projects.
+A sample test might look like this.
+
+[source, java]
+----
+@Nested
+class VerifyRulesThemselves {
+  @Test
+  void verifyClassesShouldNotBeUnused() {
+     JavaClasses javaClasses = new ClassFileImporter()
+       .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_ARCHIVES)
+       .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_JARS)
+       .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+       .importPackagesOf(ArchunitUnusedRuleApplication.class);
+     AssertionError error = assertThrows(AssertionError.class,
+       () -> classesShouldNotBeUnused.check(javaClasses));
+     assertEquals("""
+       Architecture Violation [Priority: MEDIUM] - Rule 'classes that are not meta-annotated with @Configuration and are not meta-annotated with @Controller and not has method with annotation that ends with 'Handler' or has method with annotation that ends with 'Listener' or has method with annotation that ends with 'Scheduled' and meta-annotated with @Component should not be unreferenced' was violated (3 times):
+       Class <com.github.timtebeek.archunit.ComponentD> is unreferenced in (ArchunitUnusedRuleApplication.java:0)
+       Class <com.github.timtebeek.archunit.ModelF> is unreferenced in (ArchunitUnusedRuleApplication.java:0)
+       Class <com.github.timtebeek.archunit.PathsE> is unreferenced in (ArchunitUnusedRuleApplication.java:0)""",
+       error.getMessage());
+  }
+
+  @Test
+  void verifyMethodsShouldNotBeUnused() {
+    JavaClasses javaClasses = new ClassFileImporter()
+      .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_ARCHIVES)
+      .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_JARS)
+      .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+      .importPackagesOf(ArchunitUnusedRuleApplication.class);
+    AssertionError error = assertThrows(AssertionError.class,
+      () -> methodsShouldNotBeUnused.check(javaClasses));
+    assertEquals("""
+      Architecture Violation [Priority: MEDIUM] - Rule 'methods that do not have name 'equals' and do not have name 'hashCode' and do not have name 'toString' and do not have name 'main' and are not meta-annotated with @RequestMapping and not has annotation that ends with 'Handler' or has annotation that ends with 'Listener' or has annotation that ends with 'Scheduled' and declared in component should not be unreferenced' was violated (2 times):
+      Method <com.github.timtebeek.archunit.ComponentD.doSomething(com.github.timtebeek.archunit.ModelD)> is unreferenced in (ArchunitUnusedRuleApplication.java:102)
+      Method <com.github.timtebeek.archunit.ModelF.toUpper()> is unreferenced in (ArchunitUnusedRuleApplication.java:143)""",
+      error.getMessage());
+  }
+}
+----
+
+=== Conclusion
+
+With the above rules in place you can be sure new code changes wont inadvertently leave any new or old code unreferenced.
+Any changes to what was previously, or is now unreferenced will be maintained in the freeze store right inside the repository.
+Together these rules will help keep your code base no larger than it needs to be, allowing you to focus on what's actually used.
+
+=== References
+https://stackoverflow.com/questions/53671469/search-for-unused-classes-in-archunit-how-to-find-myclass-class-reference
