@@ -1,10 +1,8 @@
 package com.github.timtebeek.archunit;
 
 import com.tngtech.archunit.base.DescribedPredicate;
-import com.tngtech.archunit.core.domain.JavaAccess;
-import com.tngtech.archunit.core.domain.JavaClass;
-import com.tngtech.archunit.core.domain.JavaMethod;
-import com.tngtech.archunit.core.domain.JavaMethodCall;
+import com.tngtech.archunit.core.domain.*;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -12,6 +10,8 @@ import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -25,6 +25,8 @@ import static com.tngtech.archunit.core.domain.properties.CanBeAnnotated.Predica
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @AnalyzeClasses(packagesOf = ArchunitUnusedRuleApplication.class, importOptions = {
         ImportOption.DoNotIncludeArchives.class,
@@ -33,8 +35,7 @@ import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
 })
 class ArchunitUnusedRuleApplicationTests {
 
-    @ArchTest
-    static ArchRule classesShouldNotBeUnused = freeze(classes()
+    static final ArchRule classesShouldNotBeUnused = classes()
             .that().areNotMetaAnnotatedWith(org.springframework.context.annotation.Configuration.class)
             .and().areNotMetaAnnotatedWith(org.springframework.stereotype.Controller.class)
             .and(not(classHasMethodWithAnnotationThatEndsWith("Handler")
@@ -51,10 +52,11 @@ class ArchunitUnusedRuleApplicationTests {
                                 javaClass.getDescription(), javaClass.getSourceCodeLocation())));
                     }
                 }
-            }));
-
+            });
     @ArchTest
-    static ArchRule methodsShouldNotBeUnused = freeze(methods()
+    static ArchRule classesShouldNotBeUnusedFrozen = freeze(classesShouldNotBeUnused);
+
+    static ArchRule methodsShouldNotBeUnused = methods()
             .that().doNotHaveName("equals")
             .and().doNotHaveName("hashCode")
             .and().doNotHaveName("toString")
@@ -74,7 +76,9 @@ class ArchunitUnusedRuleApplicationTests {
                                 javaMethod.getDescription(), javaMethod.getSourceCodeLocation())));
                     }
                 }
-            }));
+            });
+    @ArchTest
+    static ArchRule methodsShouldNotBeUnusedFrozen = freeze(methodsShouldNotBeUnused);
 
     static DescribedPredicate<JavaClass> classHasMethodWithAnnotationThatEndsWith(String suffix) {
         return describe(String.format("has method with annotation that ends with '%s'", suffix),
@@ -89,6 +93,41 @@ class ArchunitUnusedRuleApplicationTests {
                         .anyMatch(annotation -> annotation.getRawType().getFullName().endsWith(suffix)));
     }
 
-}
+    @Nested
+    class VerifyRulesThemselves {
+        @Test
+        void verifyClassesShouldNotBeUnused() {
+            JavaClasses javaClasses = new ClassFileImporter()
+                    .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_ARCHIVES)
+                    .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_JARS)
+                    .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                    .importPackagesOf(ArchunitUnusedRuleApplication.class);
+            AssertionError error = assertThrows(AssertionError.class,
+                    () -> classesShouldNotBeUnused.check(javaClasses));
+            assertEquals(
+                    """
+                            Architecture Violation [Priority: MEDIUM] - Rule 'classes that are not meta-annotated with @Configuration and are not meta-annotated with @Controller and not has method with annotation that ends with 'Handler' or has method with annotation that ends with 'Listener' or has method with annotation that ends with 'Scheduled' and meta-annotated with @Component should not be unreferenced' was violated (3 times):
+                            Class <com.github.timtebeek.archunit.ComponentD> is unreferenced in (ArchunitUnusedRuleApplication.java:0)
+                            Class <com.github.timtebeek.archunit.ModelF> is unreferenced in (ArchunitUnusedRuleApplication.java:0)
+                            Class <com.github.timtebeek.archunit.PathsE> is unreferenced in (ArchunitUnusedRuleApplication.java:0)""",
+                    error.getMessage());
+        }
 
-// TODO Check method references; Add tests for the rules themselves
+        @Test
+        void verifyMethodsShouldNotBeUnused() {
+            JavaClasses javaClasses = new ClassFileImporter()
+                    .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_ARCHIVES)
+                    .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_JARS)
+                    .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                    .importPackagesOf(ArchunitUnusedRuleApplication.class);
+            AssertionError error = assertThrows(AssertionError.class,
+                    () -> methodsShouldNotBeUnused.check(javaClasses));
+            assertEquals(
+                    """
+                            Architecture Violation [Priority: MEDIUM] - Rule 'methods that do not have name 'equals' and do not have name 'hashCode' and do not have name 'toString' and do not have name 'main' and are not meta-annotated with @RequestMapping and not has annotation that ends with 'Handler' or has annotation that ends with 'Listener' or has annotation that ends with 'Scheduled' and declared in component should not be unreferenced' was violated (2 times):
+                            Method <com.github.timtebeek.archunit.ComponentD.doSomething(com.github.timtebeek.archunit.ModelD)> is unreferenced in (ArchunitUnusedRuleApplication.java:102)
+                            Method <com.github.timtebeek.archunit.ModelF.toUpper()> is unreferenced in (ArchunitUnusedRuleApplication.java:143)""",
+                    error.getMessage());
+        }
+    }
+}
