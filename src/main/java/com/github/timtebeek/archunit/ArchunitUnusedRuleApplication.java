@@ -7,8 +7,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Optional;
 
 @SpringBootApplication
 public class ArchunitUnusedRuleApplication {
@@ -91,10 +95,10 @@ class ModelC {
 
 @Service
 @RequiredArgsConstructor
-class ComponentD {
+class ComponentD { // Unused
     final ServiceD service;
 
-    void doSomething(ModelD model) {
+    void doSomething(ModelD model) { // Unused
         service.process(model);
     }
 }
@@ -109,4 +113,33 @@ class ServiceD {
 @Value
 class ModelD {
     String name;
+}
+
+@RestController
+class ControllerE {
+    @GetMapping(value = PathsE.PATH)
+    public void get() {
+    }
+}
+
+interface PathsE { // False positive
+    String PATH = "/path";
+}
+
+@RestController
+@RequiredArgsConstructor
+class ControllerF {
+    @PutMapping
+    public Optional<String> put(Optional<ModelF> model) {
+        return model.map(ModelF::toUpper);
+    }
+}
+
+@Value
+class ModelF { // False positive
+    String name;
+
+    String toUpper() { // False positive
+        return name.toUpperCase();
+    }
 }
