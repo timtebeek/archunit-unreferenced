@@ -37,9 +37,9 @@ class ArchunitUnusedRuleApplicationTests {
     static ArchRule classesShouldNotBeUnused = freeze(classes()
             .that().areNotMetaAnnotatedWith(org.springframework.context.annotation.Configuration.class)
             .and().areNotMetaAnnotatedWith(org.springframework.stereotype.Controller.class)
-            .and(not(new ClassHasMethodWithAnnotationThatEndsWith("Handler")
-                    .or(new ClassHasMethodWithAnnotationThatEndsWith("Listener"))
-                    .or(new ClassHasMethodWithAnnotationThatEndsWith("Scheduled"))
+            .and(not(classHasMethodWithAnnotationThatEndsWith("Handler")
+                    .or(classHasMethodWithAnnotationThatEndsWith("Listener"))
+                    .or(classHasMethodWithAnnotationThatEndsWith("Scheduled"))
                     .and(metaAnnotatedWith(Component.class))))
             .should(new ArchCondition<>("not be unreferenced") {
                 @Override
@@ -60,9 +60,9 @@ class ArchunitUnusedRuleApplicationTests {
             .and().doNotHaveName("toString")
             .and().doNotHaveName("main")
             .and().areNotMetaAnnotatedWith(RequestMapping.class)
-            .and(not(new MethodHasAnnotationThatEndsWith("Handler")
-                    .or(new MethodHasAnnotationThatEndsWith("Listener"))
-                    .or(new MethodHasAnnotationThatEndsWith("Scheduled"))
+            .and(not(methodHasAnnotationThatEndsWith("Handler")
+                    .or(methodHasAnnotationThatEndsWith("Listener"))
+                    .or(methodHasAnnotationThatEndsWith("Scheduled"))
                     .and(declaredIn(describe("component", clazz -> clazz.isMetaAnnotatedWith(Component.class))))))
             .should(new ArchCondition<>("not be unreferenced") {
                 @Override
@@ -76,37 +76,19 @@ class ArchunitUnusedRuleApplicationTests {
                 }
             }));
 
-    // TODO Check method references; Add tests for the rules themselves
+    static DescribedPredicate<JavaClass> classHasMethodWithAnnotationThatEndsWith(String suffix) {
+        return describe(String.format("has method with annotation that ends with '%s'", suffix),
+                clazz -> clazz.getMethods().stream()
+                        .flatMap(method -> method.getAnnotations().stream())
+                        .anyMatch(annotation -> annotation.getRawType().getFullName().endsWith(suffix)));
+    }
+
+    static DescribedPredicate<JavaMethod> methodHasAnnotationThatEndsWith(String suffix) {
+        return describe(String.format("has annotation that ends with '%s'", suffix),
+                method -> method.getAnnotations().stream()
+                        .anyMatch(annotation -> annotation.getRawType().getFullName().endsWith(suffix)));
+    }
 
 }
 
-class ClassHasMethodWithAnnotationThatEndsWith extends DescribedPredicate<JavaClass> {
-    private final String suffix;
-
-    public ClassHasMethodWithAnnotationThatEndsWith(String suffix) {
-        super("has method with annotation that ends with '%s'", suffix);
-        this.suffix = suffix;
-    }
-
-    @Override
-    public boolean apply(JavaClass clazz) {
-        return clazz.getMethods().stream()
-                .flatMap(method -> method.getAnnotations().stream())
-                .anyMatch(annotation -> annotation.getRawType().getFullName().endsWith(suffix));
-    }
-}
-
-class MethodHasAnnotationThatEndsWith extends DescribedPredicate<JavaMethod> {
-    private final String suffix;
-
-    public MethodHasAnnotationThatEndsWith(String suffix) {
-        super("has annotation that ends with '%s'", suffix);
-        this.suffix = suffix;
-    }
-
-    @Override
-    public boolean apply(JavaMethod method) {
-        return method.getAnnotations().stream()
-                .anyMatch(annotation -> annotation.getRawType().getFullName().endsWith(suffix));
-    }
-}
+// TODO Check method references; Add tests for the rules themselves
