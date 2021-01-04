@@ -214,7 +214,7 @@ class VerifyRulesThemselves {
 
 === Conclusion
 
-With the above rules in place you can be sure new code changes wont inadvertently leave any new or old code unreferenced.
+With the above rules in place you can be sure new code changes won't inadvertently leave any new or old code unreferenced.
 Any changes to what was previously, or is now unreferenced will be maintained in the freeze store right inside the repository.
 Together these rules will help keep your code base no larger than it needs to be, allowing you to focus on what's actually used.
 Now you start to iteratively detect & delete unused code, and see what pops up next when removed endpoints, methods and classes no longer reference their respective dependencies.
