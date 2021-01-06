@@ -3,7 +3,7 @@
 When you maintain a large Java project for a longer period, the moments where you're finally able to remove unused code can be very satisfying.
 No more upkeep, library version migrations or dark corners to maintain, for code that's no longer being used.
 But finding out which parts of the code base can be removed can be a challenge, and tooling in this space seems not to have kept pace with recent development practices in Java.
-In this post we'll outline an approach to find unreferenced code with ArchUnit, which allows you to iteratively detect & delete unused code from your Java projects.
+https://blog.jdriven.com/2021/01/detect-delete-unreferenced-code-with-archunit/[In this post] we'll outline an approach to find unreferenced code with ArchUnit, which allows you to iteratively detect & delete unused code from your Java projects.
 
 == ArchUnit
 
