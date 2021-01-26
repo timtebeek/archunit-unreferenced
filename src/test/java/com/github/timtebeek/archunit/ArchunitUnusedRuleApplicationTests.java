@@ -42,6 +42,8 @@ class ArchunitUnusedRuleApplicationTests {
             .and(not(classHasMethodWithAnnotationThatEndsWith("Handler")
                     .or(classHasMethodWithAnnotationThatEndsWith("Listener"))
                     .or(classHasMethodWithAnnotationThatEndsWith("Scheduled"))
+                    .or(describe("implements interface", clazz -> !clazz.getAllInterfaces().isEmpty()))
+                    .or(describe("extends class", clazz -> 1 < clazz.getAllSuperClasses().size()))
                     .and(metaAnnotatedWith(Component.class))))
             .should(new ArchCondition<>("not be unreferenced") {
                 @Override
@@ -115,7 +117,7 @@ class ArchunitUnusedRuleApplicationTests {
                     () -> classesShouldNotBeUnused.check(javaClasses));
             assertEquals(
                     """
-                            Architecture Violation [Priority: MEDIUM] - Rule 'classes that are not meta-annotated with @Configuration and are not meta-annotated with @Controller and not has method with annotation that ends with 'Handler' or has method with annotation that ends with 'Listener' or has method with annotation that ends with 'Scheduled' and meta-annotated with @Component should not be unreferenced' was violated (3 times):
+                            Architecture Violation [Priority: MEDIUM] - Rule 'classes that are not meta-annotated with @Configuration and are not meta-annotated with @Controller and not has method with annotation that ends with 'Handler' or has method with annotation that ends with 'Listener' or has method with annotation that ends with 'Scheduled' or implements interface or extends class and meta-annotated with @Component should not be unreferenced' was violated (3 times):
                             Class <com.github.timtebeek.archunit.ComponentD> is unreferenced in (ArchunitUnusedRuleApplication.java:0)
                             Class <com.github.timtebeek.archunit.ModelF> is unreferenced in (ArchunitUnusedRuleApplication.java:0)
                             Class <com.github.timtebeek.archunit.PathsE> is unreferenced in (ArchunitUnusedRuleApplication.java:0)""",
