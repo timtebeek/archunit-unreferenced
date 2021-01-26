@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import static com.tngtech.archunit.base.DescribedPredicate.describe;
 import static com.tngtech.archunit.base.DescribedPredicate.not;
@@ -35,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 })
 class ArchunitUnusedRuleApplicationTests {
 
-    static final ArchRule classesShouldNotBeUnused = classes()
+    static ArchRule classesShouldNotBeUnused = classes()
             .that().areNotMetaAnnotatedWith(org.springframework.context.annotation.Configuration.class)
             .and().areNotMetaAnnotatedWith(org.springframework.stereotype.Controller.class)
             .and(not(classHasMethodWithAnnotationThatEndsWith("Handler")
@@ -57,9 +58,10 @@ class ArchunitUnusedRuleApplicationTests {
     static ArchRule classesShouldNotBeUnusedFrozen = freeze(classesShouldNotBeUnused);
 
     static ArchRule methodsShouldNotBeUnused = methods()
-            .that().doNotHaveName("equals")
-            .and().doNotHaveName("hashCode")
-            .and().doNotHaveName("toString")
+            .that(describe("are not declared in super type", input -> !input.getOwner().getAllSuperClasses().stream()
+                    .flatMap(c -> c.getMethods().stream()).anyMatch(hasMatchingNameAndParameters(input))))
+            .and(describe("are not declared in interface", input -> !input.getOwner().getAllInterfaces().stream()
+                    .flatMap(i -> i.getMethods().stream()).anyMatch(hasMatchingNameAndParameters(input))))
             .and().doNotHaveName("main")
             .and().areNotMetaAnnotatedWith(RequestMapping.class)
             .and(not(methodHasAnnotationThatEndsWith("Handler")
@@ -79,6 +81,13 @@ class ArchunitUnusedRuleApplicationTests {
             });
     @ArchTest
     static ArchRule methodsShouldNotBeUnusedFrozen = freeze(methodsShouldNotBeUnused);
+
+    static Predicate<JavaMethod> hasMatchingNameAndParameters(JavaMethod input) {
+        return m -> m.getName().equals(input.getName())
+                && m.getRawParameterTypes().size() == input.getRawParameterTypes().size()
+                && (m.getDescriptor().equals(input.getDescriptor())
+                        || m.getRawParameterTypes().getNames().containsAll(input.getRawParameterTypes().getNames()));
+    }
 
     static DescribedPredicate<JavaClass> classHasMethodWithAnnotationThatEndsWith(String suffix) {
         return describe(String.format("has method with annotation that ends with '%s'", suffix),
@@ -124,7 +133,7 @@ class ArchunitUnusedRuleApplicationTests {
                     () -> methodsShouldNotBeUnused.check(javaClasses));
             assertEquals(
                     """
-                            Architecture Violation [Priority: MEDIUM] - Rule 'methods that do not have name 'equals' and do not have name 'hashCode' and do not have name 'toString' and do not have name 'main' and are not meta-annotated with @RequestMapping and not has annotation that ends with 'Handler' or has annotation that ends with 'Listener' or has annotation that ends with 'Scheduled' and declared in component should not be unreferenced' was violated (2 times):
+                            Architecture Violation [Priority: MEDIUM] - Rule 'methods that are not declared in super type and are not declared in interface and do not have name 'main' and are not meta-annotated with @RequestMapping and not has annotation that ends with 'Handler' or has annotation that ends with 'Listener' or has annotation that ends with 'Scheduled' and declared in component should not be unreferenced' was violated (2 times):
                             Method <com.github.timtebeek.archunit.ComponentD.doSomething(com.github.timtebeek.archunit.ModelD)> is unreferenced in (ArchunitUnusedRuleApplication.java:102)
                             Method <com.github.timtebeek.archunit.ModelF.toUpper()> is unreferenced in (ArchunitUnusedRuleApplication.java:143)""",
                     error.getMessage());
