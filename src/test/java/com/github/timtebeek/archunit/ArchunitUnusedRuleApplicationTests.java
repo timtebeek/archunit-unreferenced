@@ -42,8 +42,8 @@ class ArchunitUnusedRuleApplicationTests {
             .and(not(classHasMethodWithAnnotationThatEndsWith("Handler")
                     .or(classHasMethodWithAnnotationThatEndsWith("Listener"))
                     .or(classHasMethodWithAnnotationThatEndsWith("Scheduled"))
-                    .or(describe("implements interface", clazz -> !clazz.getAllInterfaces().isEmpty()))
-                    .or(describe("extends class", clazz -> 1 < clazz.getAllSuperClasses().size()))
+                    .or(describe("implements interface", clazz -> !clazz.getAllRawInterfaces().isEmpty()))
+                    .or(describe("extends class", clazz -> 1 < clazz.getAllRawSuperclasses().size()))
                     .and(metaAnnotatedWith(Component.class))))
             .should(new ArchCondition<>("not be unreferenced") {
                 @Override
@@ -60,9 +60,9 @@ class ArchunitUnusedRuleApplicationTests {
     static ArchRule classesShouldNotBeUnusedFrozen = freeze(classesShouldNotBeUnused);
 
     static ArchRule methodsShouldNotBeUnused = methods()
-            .that(describe("are not declared in super type", input -> !input.getOwner().getAllSuperClasses().stream()
+            .that(describe("are not declared in super type", input -> !input.getOwner().getAllRawSuperclasses().stream()
                     .flatMap(c -> c.getMethods().stream()).anyMatch(hasMatchingNameAndParameters(input))))
-            .and(describe("are not declared in interface", input -> !input.getOwner().getAllInterfaces().stream()
+            .and(describe("are not declared in interface", input -> !input.getOwner().getAllRawInterfaces().stream()
                     .flatMap(i -> i.getMethods().stream()).anyMatch(hasMatchingNameAndParameters(input))))
             .and().doNotHaveName("main")
             .and().areNotMetaAnnotatedWith(RequestMapping.class)
