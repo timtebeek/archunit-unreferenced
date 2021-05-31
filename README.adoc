@@ -24,7 +24,7 @@ There's https://github.com/timtebeek/archunit-unreferenced[a GitHub repository t
 It contains https://github.com/timtebeek/archunit-unreferenced/blob/main/src/main/java/com/github/timtebeek/archunit/ArchunitUnusedRuleApplication.java[a very minimal Spring Boot application], as well as https://github.com/timtebeek/archunit-unreferenced/blob/main/src/test/java/com/github/timtebeek/archunit/ArchunitUnusedRuleApplicationTests.java[ArchUnit rules to look for unreferenced classes and methods].
 
 At time of writing https://github.com/TNG/ArchUnit/releases/tag/v0.18.0[we're using ArchUnit 0.18.0].
-Specifically, we're using the https://www.archunit.org/userguide/html/000_Index.html#_junit_4_5_support[JUnit5 support] through `com.tngtech.archunit:archunit-junit5:0.18.0`.
+Specifically, we're using the https://www.archunit.org/userguide/html/000_Index.html#_junit_4_5_support[JUnit5 support] through `com.tngtech.archunit:archunit-junit5:0.19.0`.
 That brings the basic test structure outline to:
 
 
