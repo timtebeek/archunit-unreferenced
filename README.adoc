@@ -23,8 +23,8 @@ We'll also explore both generic and project specific ways to prevent false posit
 There's https://github.com/timtebeek/archunit-unreferenced[a GitHub repository to accompany this blog post].
 It contains https://github.com/timtebeek/archunit-unreferenced/blob/main/src/main/java/com/github/timtebeek/archunit/ArchunitUnusedRuleApplication.java[a very minimal Spring Boot application], as well as https://github.com/timtebeek/archunit-unreferenced/blob/main/src/test/java/com/github/timtebeek/archunit/ArchunitUnusedRuleApplicationTests.java[ArchUnit rules to look for unreferenced classes and methods].
 
-At time of writing https://github.com/TNG/ArchUnit/releases/tag/v0.20.0[we're using ArchUnit 0.20.0].
-Specifically, we're using the https://www.archunit.org/userguide/html/000_Index.html#_junit_4_5_support[JUnit5 support] through `com.tngtech.archunit:archunit-junit5:0.20.0`.
+At time of writing https://github.com/TNG/ArchUnit/releases/tag/v0.21.0[we're using ArchUnit 0.21.0].
+Specifically, we're using the https://www.archunit.org/userguide/html/000_Index.html#_junit_4_5_support[JUnit5 support] through `com.tngtech.archunit:archunit-junit5:0.21.0`.
 That brings the basic test structure outline to:
 
 
@@ -79,7 +79,7 @@ private static Predicate<JavaMethod> hasMatchingNameAndParameters(JavaMethod inp
   return m -> m.getName().equals(input.getName())
       && m.getRawParameterTypes().size() == input.getRawParameterTypes().size()
       && (m.getDescriptor().equals(input.getDescriptor())
-          || m.getRawParameterTypes().getNames().containsAll(input.getRawParameterTypes().getNames()));
+          || namesOf(m.getRawParameterTypes()).containsAll(namesOf(input.getRawParameterTypes())));
 }
 
 private static DescribedPredicate<JavaMethod> methodHasAnnotationThatEndsWith(String suffix) {
@@ -170,7 +170,6 @@ public static ArchRule classesShouldNotBeUnusedFrozen = freeze(classesShouldNotB
 
 Now, while the above rules are a great start off point to identify potentially unused code, unfortunately, it's also where we will start to run into some of the (current) limitations of ArchUnit.
 Depending on the way your project is setup, you might find that https://github.com/TNG/ArchUnit/issues/215[method reference is not considered as a dependency].
-Or you might find that https://github.com/TNG/ArchUnit/issues/115[generic type arguments] are https://github.com/TNG/ArchUnit/issues/307[not found as dependency].
 And, since ArchUnit operates on the byte code, you might find https://stackoverflow.com/questions/1406616/is-java-guaranteed-to-inline-string-constants-if-they-can-be-determined-at-compi[String constants are inlined at compile time].
 
 === Freezing false (or true!) positives

@@ -27,6 +27,7 @@ import static com.tngtech.archunit.base.DescribedPredicate.describe;
 import static com.tngtech.archunit.base.DescribedPredicate.not;
 import static com.tngtech.archunit.core.domain.JavaMember.Predicates.declaredIn;
 import static com.tngtech.archunit.core.domain.properties.CanBeAnnotated.Predicates.metaAnnotatedWith;
+import static com.tngtech.archunit.core.domain.properties.HasName.Utils.namesOf;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
@@ -81,7 +82,7 @@ class ArchunitUnusedRuleApplicationTests {
 		return m -> m.getName().equals(input.getName())
 				&& m.getRawParameterTypes().size() == input.getRawParameterTypes().size()
 				&& (m.getDescriptor().equals(input.getDescriptor())
-						|| m.getRawParameterTypes().getNames().containsAll(input.getRawParameterTypes().getNames()));
+						|| namesOf(m.getRawParameterTypes()).containsAll(namesOf(input.getRawParameterTypes())));
 	}
 
 	private static DescribedPredicate<JavaMethod> methodHasAnnotationThatEndsWith(String suffix) {
@@ -133,9 +134,8 @@ class ArchunitUnusedRuleApplicationTests {
 					() -> classesShouldNotBeUnused.check(javaClasses));
 			assertEquals(
 					"""
-							Architecture Violation [Priority: MEDIUM] - Rule 'should use all classes, because unused classes should be removed' was violated (3 times):
+							Architecture Violation [Priority: MEDIUM] - Rule 'should use all classes, because unused classes should be removed' was violated (2 times):
 							Class <com.github.timtebeek.archunit.ComponentD> is unreferenced in (ArchunitUnusedRuleApplication.java:0)
-							Class <com.github.timtebeek.archunit.ModelF> is unreferenced in (ArchunitUnusedRuleApplication.java:0)
 							Class <com.github.timtebeek.archunit.PathsE> is unreferenced in (ArchunitUnusedRuleApplication.java:0)""",
 					error.getMessage());
 		}
