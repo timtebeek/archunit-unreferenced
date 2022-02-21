@@ -23,8 +23,8 @@ We'll also explore both generic and project specific ways to prevent false posit
 There's https://github.com/timtebeek/archunit-unreferenced[a GitHub repository to accompany this blog post].
 It contains https://github.com/timtebeek/archunit-unreferenced/blob/main/src/main/java/com/github/timtebeek/archunit/ArchunitUnusedRuleApplication.java[a very minimal Spring Boot application], as well as https://github.com/timtebeek/archunit-unreferenced/blob/main/src/test/java/com/github/timtebeek/archunit/ArchunitUnusedRuleApplicationTests.java[ArchUnit rules to look for unreferenced classes and methods].
 
-At time of writing https://github.com/TNG/ArchUnit/releases/tag/v0.21.0[we're using ArchUnit 0.21.0].
-Specifically, we're using the https://www.archunit.org/userguide/html/000_Index.html#_junit_4_5_support[JUnit5 support] through `com.tngtech.archunit:archunit-junit5:0.21.0`.
+At time of writing https://github.com/TNG/ArchUnit/releases/tag/v0.23.0[we're using ArchUnit 0.23.0].
+Specifically, we're using the https://www.archunit.org/userguide/html/000_Index.html#_junit_4_5_support[JUnit5 support] through `com.tngtech.archunit:archunit-junit5:0.23.0`.
 That brings the basic test structure outline to:
 
 
@@ -91,7 +91,7 @@ private static DescribedPredicate<JavaMethod> methodHasAnnotationThatEndsWith(St
 private static ArchCondition<JavaMethod> shouldBeReferencedMethod = new ArchCondition<>("not be unreferenced") {
   @Override
   public void check(JavaMethod javaMethod, ConditionEvents events) {
-    Set<JavaMethodCall> accesses = new HashSet<>(javaMethod.getAccessesToSelf());
+    Set<JavaCodeUnitAccess<?>> accesses = new HashSet<>(javaMethod.getAccessesToSelf());
     accesses.removeAll(javaMethod.getAccessesFromSelf());
     if (accesses.isEmpty()) {
       events.add(new SimpleConditionEvent(javaMethod, false, String.format("%s is unreferenced in %s",
@@ -168,9 +168,9 @@ public static ArchRule classesShouldNotBeUnusedFrozen = freeze(classesShouldNotB
 
 === Limitations
 
-Now, while the above rules are a great start off point to identify potentially unused code, unfortunately, it's also where we will start to run into some of the (current) limitations of ArchUnit.
-Depending on the way your project is setup, you might find that https://github.com/TNG/ArchUnit/issues/215[method reference is not considered as a dependency].
-And, since ArchUnit operates on the byte code, you might find https://stackoverflow.com/questions/1406616/is-java-guaranteed-to-inline-string-constants-if-they-can-be-determined-at-compi[String constants are inlined at compile time].
+Now, while the above rules are a great start off point to identify potentially unused code, unfortunately, it's also where we will also run into some limitations of ArchUnit.
+Since ArchUnit operates on the byte code, you might find https://stackoverflow.com/questions/1406616/is-java-guaranteed-to-inline-string-constants-if-they-can-be-determined-at-compi[String constants are inlined at compile time].
+This may lead to false positives which are marked as unused, whereas in reality they are still used in the source code.
 
 === Freezing false (or true!) positives
 

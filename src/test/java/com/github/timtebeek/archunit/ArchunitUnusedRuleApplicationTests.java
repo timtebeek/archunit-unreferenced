@@ -1,11 +1,15 @@
 package com.github.timtebeek.archunit;
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Predicate;
+
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaCodeUnitAccess;
 import com.tngtech.archunit.core.domain.JavaMethod;
-import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -18,10 +22,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMapping;
-
-import java.util.HashSet;
-import java.util.Set;
-import java.util.function.Predicate;
 
 import static com.tngtech.archunit.base.DescribedPredicate.describe;
 import static com.tngtech.archunit.base.DescribedPredicate.not;
@@ -94,7 +94,7 @@ class ArchunitUnusedRuleApplicationTests {
 	private static ArchCondition<JavaMethod> shouldBeReferencedMethod = new ArchCondition<>("not be unreferenced") {
 		@Override
 		public void check(JavaMethod javaMethod, ConditionEvents events) {
-			Set<JavaMethodCall> accesses = new HashSet<>(javaMethod.getAccessesToSelf());
+			Set<JavaCodeUnitAccess<?>> accesses = new HashSet<>(javaMethod.getAccessesToSelf());
 			accesses.removeAll(javaMethod.getAccessesFromSelf());
 			if (accesses.isEmpty()) {
 				events.add(new SimpleConditionEvent(javaMethod, false, String.format("%s is unreferenced in %s",
@@ -151,9 +151,8 @@ class ArchunitUnusedRuleApplicationTests {
 					() -> methodsShouldNotBeUnused.check(javaClasses));
 			assertEquals(
 					"""
-							Architecture Violation [Priority: MEDIUM] - Rule 'should use all methods, because unused methods should be removed' was violated (2 times):
-							Method <com.github.timtebeek.archunit.ComponentD.doSomething(com.github.timtebeek.archunit.ModelD)> is unreferenced in (ArchunitUnusedRuleApplication.java:102)
-							Method <com.github.timtebeek.archunit.ModelF.toUpper()> is unreferenced in (ArchunitUnusedRuleApplication.java:143)""",
+							Architecture Violation [Priority: MEDIUM] - Rule 'should use all methods, because unused methods should be removed' was violated (1 times):
+							Method <com.github.timtebeek.archunit.ComponentD.doSomething(com.github.timtebeek.archunit.ModelD)> is unreferenced in (ArchunitUnusedRuleApplication.java:102)""",
 					error.getMessage());
 		}
 	}
