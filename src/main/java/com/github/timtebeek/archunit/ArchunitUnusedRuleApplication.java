@@ -1,5 +1,7 @@
 package com.github.timtebeek.archunit;
 
+import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import org.springframework.boot.SpringApplication;
@@ -12,14 +14,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Optional;
-
 @SpringBootApplication
 public class ArchunitUnusedRuleApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(ArchunitUnusedRuleApplication.class, args);
-    }
+	public static void main(String[] args) {
+		SpringApplication.run(ArchunitUnusedRuleApplication.class, args);
+	}
 
 }
 
@@ -27,119 +27,119 @@ public class ArchunitUnusedRuleApplication {
 @RequiredArgsConstructor
 class ControllerA {
 
-    final ServiceA service;
+	final ServiceA service;
 
-    @PostMapping
-    void postModel(ModelA model) {
-        service.process(model);
-    }
+	@PostMapping
+	void postModel(ModelA model) {
+		service.process(model);
+	}
 }
 
 @Service
 class ServiceA {
-    public void process(ModelA model) {
-        System.out.println(model);
-    }
+	public void process(ModelA model) {
+		System.out.println(model);
+	}
 }
 
 @Value
 class ModelA {
-    String name;
+	String name;
 }
 
 @Service
 @RequiredArgsConstructor
 class ListenerB {
-    final ServiceB service;
+	final ServiceB service;
 
-    @KafkaListener(topics = "models-b")
-    void listenerB(ModelB model) {
-        service.process(model);
-    }
+	@KafkaListener(topics = "models-b")
+	void listenerB(ModelB model) {
+		service.process(model);
+	}
 }
 
 @Service
 class ServiceB {
-    public void process(ModelB model) {
-        System.out.println(model);
-    }
+	public void process(ModelB model) {
+		System.out.println(model);
+	}
 }
 
 @Value
 class ModelB {
-    String name;
+	String name;
 }
 
 @Service
 @RequiredArgsConstructor
 class JobC {
-    final ServiceC service;
+	final ServiceC service;
 
-    @Scheduled(fixedRateString = "1m")
-    void jobC() {
-        service.process(new ModelC("name"));
-    }
+	@Scheduled(fixedRateString = "1m")
+	void jobC() {
+		service.process(new ModelC("name"));
+	}
 }
 
 @Service
 class ServiceC {
-    public void process(ModelC model) {
-        System.out.println(model);
-    }
+	public void process(ModelC model) {
+		System.out.println(model);
+	}
 }
 
 @Value
 class ModelC {
-    String name;
+	String name;
 }
 
 @Service
 @RequiredArgsConstructor
 class ComponentD { // Unused
-    final ServiceD service;
+	final ServiceD service;
 
-    void doSomething(ModelD model) { // Unused
-        service.process(model);
-    }
+	void doSomething(ModelD model) { // Unused
+		service.process(model);
+	}
 }
 
 @Service
 class ServiceD {
-    void process(ModelD model) {
-        System.out.println(model);
-    }
+	void process(ModelD model) {
+		System.out.println(model);
+	}
 }
 
 @Value
 class ModelD {
-    String name;
+	String name;
 }
 
 @RestController
 class ControllerE {
-    @GetMapping(value = PathsE.PATH)
-    public void get() {
-    }
+	@GetMapping(value = PathsE.PATH)
+	public void get() {
+	}
 }
 
 interface PathsE { // False positive
-    String PATH = "/path";
+	String PATH = "/path";
 }
 
 @RestController
 @RequiredArgsConstructor
 class ControllerF {
-    @PutMapping
-    public Optional<String> put(Optional<ModelF> model) {
-        return model.map(ModelF::toUpper);
-    }
+	@PutMapping
+	public Optional<String> put(Optional<ModelF> model) {
+		return model.map(ModelF::toUpper);
+	}
 }
 
 @Value
-class ModelF { // False positive
-    String name;
+class ModelF {
+	String name;
 
-    String toUpper() { // False positive
-        return name.toUpperCase();
-    }
+	String toUpper() {
+		return name.toUpperCase();
+	}
 }
